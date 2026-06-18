@@ -2,6 +2,22 @@
 namespace models3d {
 
     export let camera: Camera = new Camera();
+    let meshes: Mesh[] = [];
+
+    //% block="load mesh from OBJ text %objText with color %color"
+    //% objText.defl="v -1 -1 -1\nv 1 -1 -1\n..." group="Models"
+    export function loadMeshFromOBJ(objText: string, color: number = 0xFF): Mesh {
+        let mesh = parseOBJ(objText, color);
+        if (mesh) {
+            meshes.push(mesh);
+        }
+        return mesh;
+    }
+
+    //% block="render all meshes"
+    export function render() {
+        camera.render();
+    }
 
     //% block="set camera position x %x y %y z %z"
     export function setCameraPosition(x: number, y: number, z: number) {
@@ -16,21 +32,41 @@ namespace models3d {
         camera.pitch = pitch;
     }
 
-    //% block="render all meshes"
-    export function render() {
-        camera.render();
-    }
+    function parseOBJ(objText: string, defaultColor: number): Mesh | null {
+        let vertices: number[][] = [];
+        let faces: number[][] = [];
 
-    //% block="create mesh from vertices %verts and faces %faces with color %color"
-    //% verts.defl="[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]"
-    //% faces.defl="[[0,1,2],[0,2,3],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[2,3,7],[2,7,6],[0,3,7],[0,7,4],[1,2,6],[1,6,5]]"
-    export function createMesh(verts: number[][], faces: number[][], color: number = 0xFF): Mesh {
-        let mesh = new Mesh(verts, faces, color);
-        meshes.push(mesh);
-        return mesh;
-    }
+        const lines = objText.split('\n');
 
-    let meshes: Mesh[] = [];
+        for (let line of lines) {
+            line = line.trim();
+            if (line.startsWith('v ')) {
+                // Vertex: v x y z
+                const parts = line.split(/\s+/);
+                if (parts.length >= 4) {
+                    const x = parseFloat(parts[1]);
+                    const y = parseFloat(parts[2]);
+                    const z = parseFloat(parts[3]);
+                    vertices.push([x, y, z]);
+                }
+            } else if (line.startsWith('f ')) {
+                // Face: f v1 v2 v3  (we ignore texture/normal indices for now)
+                const parts = line.split(/\s+/);
+                if (parts.length >= 4) {
+                    const idx1 = parseInt(parts[1].split('/')[0]) - 1;
+                    const idx2 = parseInt(parts[2].split('/')[0]) - 1;
+                    const idx3 = parseInt(parts[3].split('/')[0]) - 1;
+                    if (!isNaN(idx1) && !isNaN(idx2) && !isNaN(idx3)) {
+                        faces.push([idx1, idx2, idx3]);
+                    }
+                }
+            }
+        }
+
+        if (vertices.length === 0 || faces.length === 0) {
+            return null;
+        }
+
+        return new Mesh(vertices, faces, defaultColor);
+    }
 }
-
-// Helper classes in separate files
